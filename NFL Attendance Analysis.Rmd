@@ -1,0 +1,211 @@
+---
+title: "What are the factors which affect NFL stadium attendance?"
+author: "Rahul Burjanroppa"
+date: "2023-10-22"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+## Introduction
+As an interest of ours, we had the curiosity to research the elements that affect NFL stadium attendance since they have an impact on both the league's operations and broader cultural trends. By identifying the busiest stadiums, this research sheds information on the most well-liked and financially significant franchises. It can help future stadium design and restoration decisions by examining relationships between stadium size and the number of unoccupied seats. Furthermore, comprehending the difference between recently refurbished stadiums and older ones highlights the value of contemporary amenities and spectator experiences. While analyzing attendance trends across an 18-week season is essential for assessing the league's overall popularity as well as the efficacy of marketing and scheduling tactics, regional population patterns analysis can offer insights into how demographics influence attendance.
+
+## What should our report involve to answer the broad question at hand (Methods)?
+Some of the questions we hope to address in our report include:\
+- What are the busiest stadiums?\
+- Is there any pattern with stadium size and empty seats available?\
+- Is there a trend in attendance for newly renovated stadiums that differs from older stadiums?\
+- Does the opponent matter?\
+- In what ways does a team's performance impact the attendance of the game?\
+\
+Which is what this report is based on.
+
+## The Data sets selected for the exploration of this idea
+The data sets selected to address this topic are as taken from the Pro Football Reference website, containing data from as early as 2000. For more recent data to be utilized, we've restricted the data to the recent-most five years from the data sets.
+```{r, echo=FALSE,results='hide', message = FALSE, warning = FALSE}
+attendance1 <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-04/attendance.csv')
+standings1 <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-04/standings.csv')
+games1 <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-04/games.csv')
+
+##Filtered each dataset for most recent statistics
+attendance <- attendance1 %>%
+  filter(year >= 2015 & year <= 2019)
+
+standing <- standings1 %>%
+  filter(year >= 2015 & year <= 2019)
+
+games <- games1 %>%
+  filter(year >= 2015 & year <= 2019)
+
+```
+
+## Results
+
+### Let's take a look at how busy some of these stadiums are?
+What might the total attendance be over a season for these stadiums?
+
+```{r, echo=FALSE}
+# Filter the 'attendance' dataset to get data for most recent year
+a_recent <- attendance %>%
+  filter(year == 2019)
+
+# Calculate the average weekly attendance by team for most recent year
+average_a_recent <- a_recent %>%
+  group_by(team_name) %>%
+  summarise(average_weekly_attendance = mean(home, na.rm = TRUE))
+
+# Create a visual aid barplot
+ggplot(average_a_recent, aes(x = team_name, y = average_weekly_attendance, fill = team_name)) +
+  geom_bar(stat = "identity", width = .85) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    x = "Team Name",
+    y = "Average Weekly Attendance",
+    title = "Average Weekly Attendance by Team"
+  ) +
+  scale_fill_discrete(name = "Team")
+```
+
+### Is there any pattern with stadium size and the empty seats available?
+Now that we've seen how many people come to the stadium, just how many don't?
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+# Filter the 'attendance' dataset for year 2019
+attendance_2019 <- attendance %>%
+  filter(year == 2019)
+
+# Calculate the maximum weekly attendance for each team
+attendance_2019 <- attendance_2019 %>%
+  group_by(team_name) %>%
+  mutate(totalseats = max(home, na.rm = TRUE))
+
+attendance_2019$empty = attendance_2019$totalseats - attendance_2019$home
+
+# 5 most and least maximum capacity
+sortbytotal = attendance_2019[order(attendance_2019$totalseats, decreasing = TRUE), ]
+mostseats = head(sortbytotal, 80)
+leastseats = tail(sortbytotal, 80)
+selected_teams <- rbind(mostseats, leastseats)
+
+# Create a scatterplot
+ggplot(selected_teams, aes(x = empty, y = totalseats, color = team_name)) +
+  geom_point(position = position_jitter(width = 1.2), size = 3) +
+  geom_smooth(method = "loess", se = FALSE) +
+  theme_minimal() +
+  labs(
+    x = "Empty Seats",
+    y = "Total Seats",
+    title = "Total Seats vs. Empty Seats",
+  ) +
+  scale_color_discrete(name = "Team", breaks = unique(selected_teams$team_name)) +
+  scale_y_continuous(limits = c(0, max(selected_teams$totalseats)))
+```
+
+### Is there a trend in attendance for newly renovated stadiums that differs from older stadiums?
+Our concern with addressing this question is to see if people are jumping on the bandwagon just to say they've been to the new stadium in their town which would, in theory, impact the attendance. Now, let's put that hypothesis to the test.\
+*The 49ers moved into the newly renovated Levi's Stadium in 2014.\
+*The Vikings moved to University of Minnesota's stadium in 2014 (amid the collapse of the Metrodome due to weather complications) and further into their newly renovated U.S. Bank Stadium in 2016.\
+*The Falcons moved into the newly renovated Mercedes-Benz Stadium in 2017.
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#Years Featuring stadium changes
+attendance_newstadiums <- attendance1 %>%
+  filter(year >= 2010 & year <= 2019)
+
+#Teams that moved stadiums
+attendance_vikings <- attendance_newstadiums %>%
+  filter(team_name == "Vikings")
+attendance_falcons <- attendance_newstadiums %>%
+  filter(team_name == "Falcons")
+attendance_niners <- attendance_newstadiums %>%
+  filter(team_name == "49ers")
+selected_stad <- rbind(attendance_vikings, attendance_falcons, attendance_niners)
+
+# Line graph to show progression
+ggplot(selected_stad, aes(x = year, y = home, color = team_name)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
+  labs(
+    title = "Total Home Game Attendance by Year",
+    x = "Year",
+    y = "Attendance (for the year)"
+  ) +
+  scale_color_discrete(name = "Team") +
+  scale_x_continuous(breaks = seq(2010, 2019, by = 1)) +
+  scale_y_continuous(breaks = seq(0, max(selected_stad$home), by = 10000))
+
+```
+
+### Does the opponent matter for fans to come to the stadium?
+Would you rather watch two good teams, a good and a bad team, or does it not matter? Would you rather watch your teams face their rivals? These are some of the things we thought about and analyzed for this question.
+
+```{r, warning=FALSE, echo=FALSE}
+# Recent most game data
+games_2019 <- games %>%
+  filter(year == 2019)
+
+#Parsing
+attendance_2019 <- attendance_2019 %>%
+  mutate(week = as.character(week))
+
+# Combine with recent attendance data
+gameattend <- left_join(games_2019, attendance_2019, by = c('week' = 'week', 'home_team_name' = 'team_name'))
+
+#Bar Plot
+ggplot(gameattend, aes(x = home_team_name, y = home, fill = away_team_name)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(
+    x = "Home Team",
+    y = "Weekly Attendance",
+    title = "Weekly Attendance by Home Team",
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(name = "Away Team", breaks = unique(gameattend$away_team_name))
+```
+
+### In what ways does a team's performance impact the attendance of the game?
+I could buy a ticket this year for my losing team, but what if I save for next year when we're contenders? Then again, tickets are cheap when we lose...
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#Combine data sets for performance and attendance
+standattend <- left_join(standing, attendance, by = c('year', 'team_name'))
+standattend <- standattend %>%
+  filter(team_name == c("Chiefs", "Cowboys", "Cardinals", "Bills", "Patriots", "Packers"))
+
+#Create a scatterplot
+ggplot(standattend, aes(x = wins, y = total, color = team_name)) +
+  geom_point(position = position_jitter(width = .2))+
+  geom_smooth(method = lm, se=FALSE)  +
+  theme_minimal() +
+  labs(
+    x = "Total Wins for the Season",
+    y = "Total Attendance for the Season",
+    title = "Total Wins vs. Total Attendance (by Team by Season)",
+  ) +
+  scale_color_discrete(name = "Team", breaks = unique(standattend$team_name))
+```
+
+## Conclusions Reached
+This investigation definitely shined a lot of light on the validity of our hypotheses made for each question we had amid conducting the conducting descriptive statistics via visual aids for each question.\
+\
+In the examination of the most well-attended stadiums, a conspicuous pattern emerged, indicating that teams boasting larger and more fervent fan bases also consistently demonstrated greater patronage at their home stadiums. Notably, traditional football powerhouses such as the Cowboys, Packers, and the historically successful New York franchises exhibited bustling home venues. Conversely, franchises like the Chargers and Raiders, having more recently relocated, struggled to garner the same level of enthusiasm in their new locales. However, it is pertinent to acknowledge that while gauging the attendance at busy stadiums proved insightful, it neglected to account for stadium maximum occupancy, thus warranting further inquiry into seat occupancy.\
+\
+Subsequently, our investigation sought to ascertain whether newly renovated stadiums enjoyed heightened popularity compared to their older counterparts. An analysis of three teams that underwent stadium renovations revealed intriguing attendance dynamics. The Falcons and Vikings experienced a notable surge in attendance following their stadium upgrades, whereas the 49ers saw no substantial change in attendance upon transitioning to their refurbished venue.\
+\
+Furthermore, while allegiance to the home team invariably influences stadium attendance, the opponents faced by the home team also exert a discernible influence. Evidently, matchups with arch-rivals, exemplified by the contests between the Vikings and Packers, galvanized higher attendance, underlining the significance of rivalry within the NFL.\
+\
+Lastly, it is an indisputable truism that spectatorship is inexorably linked to the performance of the home team. A thorough examination of this connection within our data set, which encompassed a spectrum of teams with varying historical success rates, exposed a trend: triumphs consistently correlated with increased attendance for four of the six teams considered, while two teams bucked this trend with contrasting results.\
+\
+In summation, this investigation elucidates the complex interplay of multifaceted factors that underlie NFL stadium attendance, encompassing team performance, stadium attributes, rivalries, and the intriguing dynamics of newly renovated venues. These insights provide valuable considerations for NFL management and enthusiasts alike, offering a more profound understanding of the dynamics governing attendance trends in the realm of professional football.
+
+## References
+Pro football stats, history, scores, standings, playoffs, schedule & records | Pro-Football-Reference.com. (n.d.). Pro-Football-Reference.com. https://www.pro-football-reference.com/ \
+\
+Rfordatascience. (2020, February 4). tidytuesday/data/2020/2020-02-04/readme.md at master · rfordatascience/tidytuesday. GitHub. https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-02-04/readme.md
