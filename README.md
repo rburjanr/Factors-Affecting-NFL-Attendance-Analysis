@@ -2,7 +2,7 @@
 An analysis of NFL Stadium Attendance and the factors that affect them over time using R.
 
 This analysis goes over conditions such as:
-<br>Stadium Quality
+<br>Stadium Quality<br>
 *Team Performance
 *Team Records
 *Stadium Occupancy
